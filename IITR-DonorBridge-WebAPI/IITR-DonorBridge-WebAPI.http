@@ -1,0 +1,6 @@
+@IITR_DonorBridge_WebAPI_HostAddress = http://localhost:5183
+
+GET {{IITR_DonorBridge_WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
