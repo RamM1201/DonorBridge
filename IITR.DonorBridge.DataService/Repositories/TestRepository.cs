@@ -14,7 +14,7 @@ namespace IITR.DonorBridge.DataService.Repositories
         public async Task<IEnumerable<TestModel>> GetAllUsersAsync()
         {
             using var conn = _dbProvider.GetConnection();
-            return await conn.QueryAsync<TestModel>("select * from tbl_login");
+            return await conn.QueryAsync<TestModel>("select top 1 * from tbl_login");
         }
     }
 }
