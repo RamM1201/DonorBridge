@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using IITR.DonorBridge.DataService.Models;
+using IITR.DonorBridge.WebAPI.DataService.Interfaces;
+using IITR.DonorBridge.WebAPI.DataService.Models;
+using Microsoft.AspNetCore.Mvc;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -8,18 +11,23 @@ namespace IITR_DonorBridge_WebAPI.Controllers
     [ApiController]
     public class AdminController : ControllerBase
     {
+        private readonly IAdminRepository _adminRepository;
+        public AdminController(IAdminRepository adminRepository)
+        {
+            _adminRepository = adminRepository;
+        }
         // GET: api/<AdminController>
         [HttpGet("users")]
-        public IEnumerable<string> GetAllUsers()
+        public async Task<ActionResult<IEnumerable<RegistrationResponse>>> GetAllUsers()
         {
-            return new string[] { "value1", "value2" };
+            return Ok(await _adminRepository.GetAllRegistrationsAsync());
         }
 
         // GET: api/<AdminController>
         [HttpGet("donations")]
-        public IEnumerable<string> GetAllDonations()
+        public async Task<ActionResult<IEnumerable<AdminDonationResponse>>> GetAllDonations()
         {
-            return new string[] { "value1", "value2" };
+            return Ok(await _adminRepository.GetAllDonationsAsync());
         }
 
         // GET: api/<AdminController>

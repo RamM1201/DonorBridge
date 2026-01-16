@@ -9,34 +9,28 @@ namespace IITR_DonorBridge_WebAPI.Controllers
     public class DonorController : ControllerBase
     {
         // GET: api/<DonorController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        [HttpGet("{id}")]
+        public IEnumerable<string> GetAllDonations(int id)
         {
             return new string[] { "value1", "value2" };
         }
 
         // GET api/<DonorController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpGet("transactions/{id}")]
+        public string GetTransactionsById(int id)
         {
             return "value";
         }
 
         // POST api/<DonorController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public void CreateDonation([FromBody] string value)
         {
         }
 
-        // PUT api/<DonorController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
-
-        // DELETE api/<DonorController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        // POST api/<DonorController>/5
+        [HttpPost("{id}")]
+        public void CreateTransaction(int id, [FromBody] string value)
         {
         }
     }

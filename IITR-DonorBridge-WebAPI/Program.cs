@@ -2,6 +2,8 @@
 using IITR.DonorBridge.DataService;
 using IITR.DonorBridge.DataService.Interfaces;
 using IITR.DonorBridge.DataService.Repositories;
+using IITR.DonorBridge.WebAPI.DataService.Interfaces;
+using IITR.DonorBridge.WebAPI.DataService.Repositories;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +26,10 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddSingleton(new DbProvider(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<ITestRepository,TestRepository>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IDonorRepository, DonorRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 
 var app = builder.Build();
 

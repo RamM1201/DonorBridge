@@ -4,7 +4,7 @@ using System.Text;
 
 namespace IITR.DonorBridge.DataService.Models
 {
-    public class Login
+    public class LoginResponse
     {
         public int RegistrationID { get; set; }
         public string? Role { get; set; }
