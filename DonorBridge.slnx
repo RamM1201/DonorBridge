@@ -5,6 +5,5 @@
   </Project>
   <Project Path="IITR-DonorBridge-WebAPI/IITR.DonorBridge.WebAPI.csproj" />
   <Project Path="IITR.DonorBridge.DataService/IITR.DonorBridge.WebAPI.DataService.csproj" />
-  <Project Path="IITR.DonorBridge.WebApp.DataService/IITR.DonorBridge.WebApp.DataService.csproj" Id="db255665-63ab-431f-bbb6-9d3ba32c242a" />
   <Project Path="IITR.DonorBridge.WebApp/IITR.DonorBridge.WebApp.csproj" Id="831bae43-b30e-4a94-8682-45de49f833fd" />
 </Solution>
