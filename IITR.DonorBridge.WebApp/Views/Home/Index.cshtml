@@ -154,13 +154,7 @@
                         <p class="text-xl text-gray-600 mb-8">Join thousands of donors supporting meaningful causes</p>
                     </div>
 
-                    <!-- Connection Test Button -->
-                    <div class="mb-8">
-                        <button onclick="testConnection()" class="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition">
-                            🔌 Test API Connection
-                        </button>
-                        <div id="connectionStatus" class="mt-2 text-sm"></div>
-                    </div>
+                    
 
                     <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
                         <div class="bg-white p-6 rounded-xl card-shadow">
@@ -192,38 +186,7 @@
             `;
         }
 
-        async function testConnection() {
-            const statusDiv = document.getElementById('connectionStatus');
-            statusDiv.innerHTML = '<span class="text-blue-600">Testing connection...</span>';
-
-            try {
-                const response = await fetch(`${API_BASE}/Test/rawdata`);
-                if (response.ok) {
-                    const data = await response.json();
-                    statusDiv.innerHTML = `
-                        <span class="text-green-600 font-semibold">✅ Connection Successful!</span><br>
-                        <span class="text-gray-500 text-xs">API is running at ${API_BASE}</span>
-                    `;
-                    console.log('Connection test successful:', data);
-                    showNotification('API connection successful!', 'success');
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `
-                    <span class="text-red-600 font-semibold">❌ Connection Failed</span><br>
-                    <span class="text-gray-500 text-xs">Error: ${error.message}</span><br>
-                    <span class="text-gray-500 text-xs">
-                        Make sure:<br>
-                        1. API is running (dotnet run)<br>
-                        2. URL is correct: ${API_BASE}<br>
-                        3. CORS is enabled in Program.cs
-                    </span>
-                `;
-                console.error('Connection test failed:', error);
-            }
-        }
-
+        
         // Login Page
         function showLogin() {
             state.currentView = 'login';
@@ -548,7 +511,7 @@
                                             <button onclick="viewTransactions(${d.donationId})" class="text-purple-600 hover:underline mr-2">
                                                 View Details
                                             </button>
-                                            ${d.status === 'failed' || d.status === 'pending' ? `
+                                            ${d.status === 'failed' ? `
                                                 <button onclick="retryPayment(${d.donationId}, ${d.amount})"
                                                         class="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600 transition">
                                                     🔄 Retry Payment

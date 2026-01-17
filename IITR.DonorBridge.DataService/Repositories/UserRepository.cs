@@ -24,9 +24,17 @@ namespace IITR.DonorBridge.WebAPI.DataService.Repositories
         }
         public async Task<LoginResponse?> CreateUserRegistrationAsync(RegistrationRequest request)
         {
-            using var conn = _dbProvider.GetConnection();
-            var response = await conn.QueryFirstOrDefaultAsync<LoginResponse>(DbStoredProcedure.User_CreateUserRegistration,request,commandType:System.Data.CommandType.StoredProcedure);
-            return response;
-        }
+            try
+            {
+                using var conn = _dbProvider.GetConnection();
+                var response = await conn.QueryFirstOrDefaultAsync<LoginResponse>(DbStoredProcedure.User_CreateUserRegistration, request, commandType: System.Data.CommandType.StoredProcedure);
+                return response;
+            }
+            catch (Exception ex)
+            {
+                string error = ex.Message;
+                return null;
+            }
+            }
     }
 }
