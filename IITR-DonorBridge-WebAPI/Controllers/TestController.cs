@@ -20,11 +20,11 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             _Repository = repository;
         }
         // GET: api/<TestController>
-        [HttpGet("all",Name ="GetAllUsers")]
-        public async Task<IActionResult> GetAllUsers()
+        [HttpGet("all",Name ="GetFirstUsers")]
+        public async Task<ActionResult<TestModel>> GetAllUsers()
         {
-            var users = await _Repository.GetAllUsersAsync();
-            return Ok(users);
+            var user = await _Repository.GetAllUsersAsync();
+            return Ok(user);
         }
         
 

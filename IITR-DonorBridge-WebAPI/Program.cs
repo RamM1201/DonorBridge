@@ -1,9 +1,11 @@
 
+using Dapper;
 using IITR.DonorBridge.DataService;
 using IITR.DonorBridge.DataService.Interfaces;
 using IITR.DonorBridge.DataService.Repositories;
 using IITR.DonorBridge.WebAPI.DataService.Interfaces;
 using IITR.DonorBridge.WebAPI.DataService.Repositories;
+using IITR_DonorBridge_WebAPI;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +33,7 @@ builder.Services.AddScoped<IDonorRepository, DonorRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

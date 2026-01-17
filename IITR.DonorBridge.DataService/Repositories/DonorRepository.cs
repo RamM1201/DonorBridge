@@ -30,10 +30,20 @@ namespace IITR.DonorBridge.WebAPI.DataService.Repositories
             using var conn = _dbProvider.GetConnection();
             return await conn.ExecuteScalarAsync<int>(DbStoredProcedure.Donor_CreateDonation,donationRequest,commandType:System.Data.CommandType.StoredProcedure);
         }
-        public async Task<int> CreateTransactionAsync(int donationId)
+        public async Task<int> CreateTransactionAsync(DonorTransactionRequest request)
         {
             using var conn = _dbProvider.GetConnection();
-            return await conn.ExecuteScalarAsync<int>(DbStoredProcedure.Donor_CreateTransaction, new { DonationID = donationId }, commandType: System.Data.CommandType.StoredProcedure);
+            return await conn.ExecuteScalarAsync<int>(DbStoredProcedure.Donor_CreateTransaction,request, commandType: System.Data.CommandType.StoredProcedure);
+        }
+        public async Task<DonorTransactionResponse> UpdateDonationStatus(TransactionStatusUpdateRequest request)
+        {
+            using var conn = _dbProvider.GetConnection();
+            return await conn.QuerySingleAsync<DonorTransactionResponse>(DbStoredProcedure.Donor_UpdateDonationStatus, request, commandType: System.Data.CommandType.StoredProcedure);
+        }
+        public async Task<int> GetAmountForDonation(int donationId)
+        {
+            using var conn = _dbProvider.GetConnection();
+            return await conn.ExecuteScalarAsync<int>(DbStoredProcedure.Donor_GetAmountForDonation, new { DonationID = donationId },commandType:System.Data.CommandType.StoredProcedure);
         }
     }
 }

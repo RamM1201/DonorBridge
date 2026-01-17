@@ -16,5 +16,7 @@ namespace IITR.DonorBridge.WebAPI.DataService
         public static string Donor_GetTransactionsByDonationId= "sp_donorGetTransactionsByDonationId";
         public static string Donor_CreateTransaction = "sp_donorCreateTransaction";
         public static string Donor_CreateDonation= "sp_donorCreateDonation";
+        public static string Donor_UpdateDonationStatus= "sp_donorUpdateDonationStatus";
+        public static string Donor_GetAmountForDonation= "sp_donorGetAmountForDonationId";
     }
 }

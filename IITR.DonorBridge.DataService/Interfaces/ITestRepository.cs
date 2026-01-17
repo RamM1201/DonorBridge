@@ -8,6 +8,6 @@ namespace IITR.DonorBridge.DataService.Interfaces
 {
     public interface ITestRepository
     {
-        Task<IEnumerable<TestModel>> GetAllUsersAsync();
+        Task<TestModel?> GetAllUsersAsync();
     }
 }

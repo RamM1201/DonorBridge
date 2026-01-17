@@ -11,10 +11,10 @@ namespace IITR.DonorBridge.DataService.Repositories
         {
             _dbProvider = dbProvider;
         }
-        public async Task<IEnumerable<TestModel>> GetAllUsersAsync()
+        public async Task<TestModel?> GetAllUsersAsync()
         {
             using var conn = _dbProvider.GetConnection();
-            return await conn.QueryAsync<TestModel>("select top 1 * from tbl_login");
+            return await conn.QueryFirstOrDefaultAsync<TestModel>("select top 1 id,userID,password from tbl_login");
         }
     }
 }

@@ -10,6 +10,8 @@ namespace IITR.DonorBridge.WebAPI.DataService.Interfaces
         Task<IEnumerable<DonorDonationResponse>> GetAllDonationsAsync(int donorId);
         Task<IEnumerable<DonorTransactionResponse>> GetTransactionsByDonationIdAsync(int donationId);
         Task<int> CreateDonationAsync(DonorDonationRequest donationRequest);
-        Task<int> CreateTransactionAsync(int donationId);
+        Task<int> CreateTransactionAsync(DonorTransactionRequest request);
+        Task<DonorTransactionResponse> UpdateDonationStatus(TransactionStatusUpdateRequest request);
+        Task<int> GetAmountForDonation(int donationId);
     }
 }
