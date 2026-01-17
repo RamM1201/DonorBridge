@@ -8,7 +8,7 @@
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
         }
 
         .card-shadow {
@@ -125,18 +125,19 @@
             const navButtons = document.getElementById('navButtons');
 
             if (state.user) {
+                const displayName = state.user.firstName || (state.user.role === 'admin' ? 'Admin' : 'User');
                 navButtons.innerHTML = `
-                    <span class="text-sm">Welcome, ${state.user.role === 'admin' ? 'Admin' : 'Donor'}</span>
-                    <button onclick="logout()" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition">
+                    <span class="text-sm">Welcome, ${displayName}</span>
+                    <button onclick="logout()" class="bg-white text-sky-600 px-4 py-2 rounded-lg hover:bg-sky-50 transition">
                         Logout
                     </button>
                 `;
             } else {
                 navButtons.innerHTML = `
-                    <button onclick="showLogin()" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition">
+                    <button onclick="showLogin()" class="bg-white text-sky-600 px-4 py-2 rounded-lg hover:bg-sky-50 transition">
                         Login
                     </button>
-                    <button onclick="showRegister()" class="bg-purple-800 px-4 py-2 rounded-lg hover:bg-purple-900 transition">
+                    <button onclick="showRegister()" class="bg-sky-800 px-4 py-2 rounded-lg hover:bg-sky-900 transition">
                         Register
                     </button>
                 `;
@@ -154,21 +155,19 @@
                         <p class="text-xl text-gray-600 mb-8">Join thousands of donors supporting meaningful causes</p>
                     </div>
 
-                    
-
                     <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
                         <div class="bg-white p-6 rounded-xl card-shadow">
-                            <div class="text-purple-600 text-4xl mb-4">🎯</div>
+                            <div class="text-sky-600 text-4xl mb-4">🎯</div>
                             <h3 class="text-xl font-bold mb-2">Track Your Impact</h3>
                             <p class="text-gray-600">Monitor all your donations in one place</p>
                         </div>
                         <div class="bg-white p-6 rounded-xl card-shadow">
-                            <div class="text-purple-600 text-4xl mb-4">🔒</div>
+                            <div class="text-sky-600 text-4xl mb-4">🔒</div>
                             <h3 class="text-xl font-bold mb-2">Secure Payments</h3>
                             <p class="text-gray-600">Safe and encrypted transaction processing</p>
                         </div>
                         <div class="bg-white p-6 rounded-xl card-shadow">
-                            <div class="text-purple-600 text-4xl mb-4">📊</div>
+                            <div class="text-sky-600 text-4xl mb-4">📊</div>
                             <h3 class="text-xl font-bold mb-2">Transparent Records</h3>
                             <p class="text-gray-600">Complete visibility of your contribution history</p>
                         </div>
@@ -178,7 +177,7 @@
                         <button onclick="showRegister()" class="gradient-bg text-white px-8 py-4 rounded-lg text-lg font-semibold hover:opacity-90 transition">
                             Start Donating
                         </button>
-                        <button onclick="showLogin()" class="bg-white text-purple-600 px-8 py-4 rounded-lg text-lg font-semibold border-2 border-purple-600 hover:bg-purple-50 transition">
+                        <button onclick="showLogin()" class="bg-white text-sky-600 px-8 py-4 rounded-lg text-lg font-semibold border-2 border-sky-600 hover:bg-sky-50 transition">
                             Login
                         </button>
                     </div>
@@ -186,7 +185,6 @@
             `;
         }
 
-        
         // Login Page
         function showLogin() {
             state.currentView = 'login';
@@ -198,12 +196,12 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
                             <input type="text" id="loginUserId" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600 focus:border-transparent">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
                             <input type="password" id="loginPassword" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600 focus:border-transparent">
                         </div>
                         <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
                             Login
@@ -211,7 +209,7 @@
                     </form>
                     <p class="text-center mt-4 text-gray-600">
                         Don't have an account?
-                        <button onclick="showRegister()" class="text-purple-600 font-semibold hover:underline">Register</button>
+                        <button onclick="showRegister()" class="text-sky-600 font-semibold hover:underline">Register</button>
                     </p>
                 </div>
             `;
@@ -228,6 +226,12 @@
                     method: 'POST',
                     body: JSON.stringify({ userId, password })
                 });
+
+                // Fetch user profile to get first name
+                if (response.role !== 'admin') {
+                    const profile = await apiCall(`/User/registration/${response.registrationID}`);
+                    response.firstName = profile.name.split(' ')[0]; // Extract first name
+                }
 
                 state.user = response;
                 localStorage.setItem('user', JSON.stringify(response));
@@ -257,28 +261,30 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                                 <input type="text" id="firstName" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                                 <input type="text" id="lastName" required
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                            <input type="email" id="email" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Email <span class="text-gray-400 text-xs">(Optional)</span>
+                            </label>
+                            <input type="email" id="email" placeholder="Optional"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
                             <input type="tel" id="mobile" required pattern="[0-9]{10}"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">State</label>
                             <select id="state" required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                                 <option value="">Select State</option>
                                 ${getStatesOptions()}
                             </select>
@@ -286,12 +292,12 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
                             <input type="text" id="userId" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
                             <input type="password" id="password" required minlength="6"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                         </div>
                         <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
                             Register
@@ -299,7 +305,7 @@
                     </form>
                     <p class="text-center mt-4 text-gray-600">
                         Already have an account?
-                        <button onclick="showLogin()" class="text-purple-600 font-semibold hover:underline">Login</button>
+                        <button onclick="showLogin()" class="text-sky-600 font-semibold hover:underline">Login</button>
                     </p>
                 </div>
             `;
@@ -325,7 +331,7 @@
                 password: document.getElementById('password').value,
                 firstName: document.getElementById('firstName').value,
                 lastName: document.getElementById('lastName').value,
-                email: document.getElementById('email').value,
+                email: document.getElementById('email').value || null,
                 mobile: document.getElementById('mobile').value,
                 state: document.getElementById('state').value
             };
@@ -335,6 +341,9 @@
                     method: 'POST',
                     body: JSON.stringify(data)
                 });
+
+                // Add firstName from form
+                response.firstName = data.firstName;
 
                 state.user = response;
                 localStorage.setItem('user', JSON.stringify(response));
@@ -361,19 +370,19 @@
 
                     <div class="grid md:grid-cols-3 gap-6 mb-8">
                         <button onclick="showDonateForm()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
-                            <div class="text-purple-600 text-3xl mb-2">💰</div>
+                            <div class="text-sky-600 text-3xl mb-2">💰</div>
                             <h3 class="text-xl font-bold">Make a Donation</h3>
                             <p class="text-gray-600">Contribute to the cause</p>
                         </button>
 
                         <button onclick="showMyDonations()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
-                            <div class="text-purple-600 text-3xl mb-2">📝</div>
+                            <div class="text-sky-600 text-3xl mb-2">📝</div>
                             <h3 class="text-xl font-bold">My Donations</h3>
                             <p class="text-gray-600">View donation history</p>
                         </button>
 
                         <button onclick="showMyProfile()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
-                            <div class="text-purple-600 text-3xl mb-2">👤</div>
+                            <div class="text-sky-600 text-3xl mb-2">👤</div>
                             <h3 class="text-xl font-bold">My Profile</h3>
                             <p class="text-gray-600">View your information</p>
                         </button>
@@ -394,13 +403,13 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
                         <input type="number" id="donationAmount" required min="1"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600">
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
                     </div>
                     <div class="flex space-x-2 mb-6">
-                        <button type="button" onclick="setAmount(100)" class="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200">₹100</button>
-                        <button type="button" onclick="setAmount(500)" class="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200">₹500</button>
-                        <button type="button" onclick="setAmount(1000)" class="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200">₹1000</button>
-                        <button type="button" onclick="setAmount(5000)" class="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200">₹5000</button>
+                        <button type="button" onclick="setAmount(100)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹100</button>
+                        <button type="button" onclick="setAmount(500)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹500</button>
+                        <button type="button" onclick="setAmount(1000)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹1000</button>
+                        <button type="button" onclick="setAmount(5000)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹5000</button>
                     </div>
                     <button type="submit" class="gradient-bg text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition">
                         Proceed to Payment
@@ -443,7 +452,7 @@
                         email: 'donor@example.com'
                     },
                     theme: {
-                        color: '#667eea'
+                        color: '#0ea5e9'
                     }
                 };
 
@@ -508,7 +517,7 @@
                                         </td>
                                         <td class="px-6 py-4">${d.updated}</td>
                                         <td class="px-6 py-4">
-                                            <button onclick="viewTransactions(${d.donationId})" class="text-purple-600 hover:underline mr-2">
+                                            <button onclick="viewTransactions(${d.donationId})" class="text-sky-600 hover:underline mr-2">
                                                 View Details
                                             </button>
                                             ${d.status === 'failed' ? `
@@ -552,7 +561,7 @@
                         email: 'donor@example.com'
                     },
                     theme: {
-                        color: '#667eea'
+                        color: '#0ea5e9'
                     },
                     modal: {
                         ondismiss: function() {
@@ -577,7 +586,7 @@
 
                 donorContent.innerHTML = `
                     <div class="mb-4">
-                        <button onclick="showMyDonations()" class="text-purple-600 hover:underline">← Back to Donations</button>
+                        <button onclick="showMyDonations()" class="text-sky-600 hover:underline">← Back to Donations</button>
                     </div>
                     <h3 class="text-2xl font-bold mb-6">Transaction History - Donation #${donationId}</h3>
                     <div class="overflow-x-auto">
@@ -630,7 +639,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-500">Email</label>
-                            <p class="text-lg">${profile.email}</p>
+                            <p class="text-lg">${profile.email || 'Not provided'}</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-500">Mobile</label>
@@ -696,13 +705,13 @@
             // Remove active class from all tabs
             document.querySelectorAll('.admin-tab').forEach(tab => {
                 tab.classList.remove('gradient-bg', 'text-white');
-                tab.classList.add('bg-white', 'text-purple-600', 'border-2', 'border-purple-600');
+                tab.classList.add('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
             });
 
             // Add active class to selected tab
             const activeTab = document.getElementById(tabId);
             if (activeTab) {
-                activeTab.classList.remove('bg-white', 'text-purple-600', 'border-2', 'border-purple-600');
+                activeTab.classList.remove('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
                 activeTab.classList.add('gradient-bg', 'text-white');
             }
         }
@@ -718,7 +727,7 @@
                 adminContent.innerHTML = `
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-2xl font-bold">All Users</h3>
-                        <button onclick="exportUsers()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                        <button onclick="exportUsers()" class="bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700">
                             📥 Export CSV
                         </button>
                     </div>
@@ -742,7 +751,7 @@
                                 ${users.map(u => `
                                     <tr class="user-row">
                                         <td class="px-6 py-4">${u.name}</td>
-                                        <td class="px-6 py-4">${u.email}</td>
+                                        <td class="px-6 py-4">${u.email || 'Not provided'}</td>
                                         <td class="px-6 py-4">${u.mobile}</td>
                                         <td class="px-6 py-4">${u.state}</td>
                                         <td class="px-6 py-4">${u.created}</td>
@@ -814,8 +823,8 @@
 
                 adminContent.innerHTML = `
                     <div class="grid md:grid-cols-3 gap-6 mb-6">
-                        <div class="bg-purple-50 p-4 rounded-lg">
-                            <div class="text-sm text-purple-600 mb-1">Total Donations</div>
+                        <div class="bg-sky-50 p-4 rounded-lg">
+                            <div class="text-sm text-sky-600 mb-1">Total Donations</div>
                             <div class="text-2xl font-bold">${donations.length}</div>
                         </div>
                         <div class="bg-green-50 p-4 rounded-lg">
