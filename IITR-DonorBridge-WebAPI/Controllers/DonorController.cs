@@ -52,7 +52,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         public async Task<IActionResult> CreateDonation([FromBody] DonorDonationRequest request)
         {
             var donationId= await _donorRepository.CreateDonationAsync(request);
-            RazorpayClient client = new RazorpayClient("rzp_test_key", "rzp_test_secret");
+            RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
             Dictionary<string, object> options = new Dictionary<string, object>();
             options.Add("amount", request.Amount * 100); // amount in the smallest currency unit
             options.Add("currency", "INR");

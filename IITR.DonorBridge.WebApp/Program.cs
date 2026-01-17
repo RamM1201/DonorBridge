@@ -11,6 +11,8 @@ builder.Services.AddHttpClient("MyApiClient", client =>
 });
 builder.Services.AddScoped<TestService>();
 
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
