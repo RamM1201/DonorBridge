@@ -92,8 +92,8 @@ CREATE TABLE [dbo].[tbl_donations](
 	[userID] [int] NULL,
 	[amount] [int] NOT NULL,
 	[statusID] [int] NULL,
-	[created] [date] NOT NULL,
-	[updated] [date] NOT NULL,
+	[created] [datetime2](0) NOT NULL,
+	[updated] [datetime2](0) NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
@@ -170,8 +170,10 @@ CREATE TABLE [dbo].[tbl_transactions](
 	[id] [int] IDENTITY(1,1) NOT NULL,
 	[donationID] [int] NULL,
 	[statusID] [int] NULL,
-	[created] [date] NOT NULL,
-	[updated] [date] NOT NULL,
+	[created] [datetime2](0) NOT NULL,
+	[updated] [datetime2](0) NOT NULL,
+	[orderID] [nvarchar](50) NOT NULL,
+	[paymentID] [nvarchar](50) NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
