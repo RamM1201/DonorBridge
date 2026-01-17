@@ -260,7 +260,7 @@ end;
 GO
 
 
-/****** Object:  StoredProcedure [dbo].[sp_donorUpdateDonationStatus]    Script Date: 17-01-2026 16:13:45 ******/
+/****** Object:  StoredProcedure [dbo].[sp_donorUpdateDonationStatus]    Script Date: 17-01-2026 22:18:04 ******/
 
 create or alter procedure [dbo].[sp_donorUpdateDonationStatus]
 	@OrderId varchar(100),
@@ -276,11 +276,14 @@ begin
 
 		declare @TransactionId INT;
 		declare @StatusId INT;
+		declare @DonationId INT;
 
-		--get transaction by OrderId
-		select @TransactionId=id
-		from tbl_transactions
-		where orderID= @OrderId;
+		--get transaction+donation by OrderId
+		select 
+			@TransactionId=t.id,
+			@DonationId =t.donationID
+		from tbl_transactions as t
+		where t.orderID= @OrderId;
 
 		if @TransactionId is NULL
 		begin 
@@ -307,6 +310,13 @@ begin
 			updated = CAST(GETDATE() as DATE)
 		where id=@TransactionId;
 
+		--fix: update donation
+		update tbl_donations
+		set
+			statusID=@StatusId,
+			updated = CAST(GETDATE() as DATE)
+			where id=@DonationId;
+
 		commit transaction;
 
 		--return updated transaction
@@ -330,6 +340,8 @@ end;
 GO
 
 
+
+
 /****** Object:  StoredProcedure [dbo].[sp_GetLogin]    Script Date: 17-01-2026 16:14:00 ******/
 
 create or alter proc [dbo].[sp_GetLogin] @UserID varchar(30),@Password varchar(20)
@@ -347,9 +359,9 @@ and l.is_active=1
 GO
 
 
-/****** Object:  StoredProcedure [dbo].[sp_userCreateRegistration]    Script Date: 17-01-2026 16:14:31 ******/
+/****** Object:  StoredProcedure [dbo].[sp_userCreateRegistration]    Script Date: 17-01-2026 23:47:25 ******/
 
-CREATE or alter procedure [dbo].[sp_userCreateRegistration]
+create or alter procedure [dbo].[sp_userCreateRegistration]
 	@UserID varchar(30),
 	@Password varchar(20),
 	@FirstName varchar(50),
@@ -362,15 +374,35 @@ as
 
 begin
 	
+	--validate unique UserID
+	if exists(
+		select 1
+		from tbl_login
+		where userID=@UserID
+	)
+	begin
+		raiserror ('User already exists', 16, 1);
+		rollback transaction;
+	end 
+
 	declare @LoginID INT;
 	declare @RegistrationID INT;
 	declare @StateID INT;
 	declare @RoleName varchar(50);
 	
+	
+
 	--StateID
 	select @StateID= id
 	from tbl_stateMaster
 	where name=@State;
+
+	if @StateID is null
+	begin 
+		raiserror ('Invalid State', 16, 1);
+		rollback transaction;
+		return;
+	end
 
 	--Inserting into login table
 	insert into tbl_login(userID, password, roleID, is_active)
@@ -399,6 +431,8 @@ END;
 GO
 
 
+
+
 /****** Object:  StoredProcedure [dbo].[sp_userGetRegistrationById]    Script Date: 17-01-2026 16:14:44 ******/
 
 create or alter procedure [dbo].[sp_userGetRegistrationById]
@@ -420,6 +454,174 @@ begin
 		on sm.id=ur.stateID
 	where ur.id=@RegistrationID;
 
+end;
+GO
+
+
+/****** Object:  StoredProcedure [dbo].[sp_systemFailPendingRecords]    Script Date: 17-01-2026 23:49:01 ******/
+
+create or alter procedure [dbo].[sp_systemFailPendingRecords]
+	@TimeoutMinutes INT=30
+
+as 
+begin
+	set nocount on;
+
+	declare @PendingStatusId INT;
+	declare @FailedStatusId INT;
+	declare @SuccessStatusId INT;
+	declare @CutoffTime DATETIME2(0);
+
+	--resolve status id
+	select @PendingStatusId =id
+	from tbl_statusMaster
+	where name='pending';
+
+	select @FailedStatusId=id
+	from tbl_statusMaster
+	where name='failed';
+
+	select @SuccessStatusId=id
+	from tbl_statusMaster
+	where name='success';
+
+	--calculate cutoff time
+	set @CutoffTime =DATEADD(SECOND, -@TimeoutMinutes, SYSUTCDATETIME());
+
+	begin try
+		begin transaction
+
+		--fail stale transactions 
+		update t
+        set 
+            t.statusID = @FailedStatusId,
+            t.updated  = SYSUTCDATETIME()
+        from tbl_transactions t
+        where t.statusID = @PendingStatusId
+          and t.updated < @CutoffTime;
+
+		--fail donations with no transactions 
+		update d
+        set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+        from tbl_donations d
+        where d.statusID = @PendingStatusId
+          and d.updated < @CutoffTime
+          and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+          );
+
+		  -- fail donations with no successful transactions
+		  update d
+		  set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+		  from tbl_donations d
+          where d.statusID = @PendingStatusId
+			and d.updated < @CutoffTime
+			and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+                and t.statusID = @SuccessStatusId
+          );
+
+		commit transaction;
+
+	end try
+	begin catch 
+		if @@TRANCOUNT>0
+			rollback transaction;
+
+		throw;
+	end catch
+end;
+GO
+
+
+/****** Object:  StoredProcedure [dbo].[sp_systemFailPendingRecords]    Script Date: 18-01-2026 00:31:20 ******/
+
+create or alter procedure [dbo].[sp_systemFailPendingRecords]
+	@TimeoutMinutes INT=1
+
+as 
+begin
+	set nocount on;
+
+	declare @PendingStatusId INT;
+	declare @FailedStatusId INT;
+	declare @SuccessStatusId INT;
+	declare @CutoffTime DATETIME2(0);
+
+	--resolve status id
+	select @PendingStatusId =id
+	from tbl_statusMaster
+	where name='pending';
+
+	select @FailedStatusId=id
+	from tbl_statusMaster
+	where name='failed';
+
+	select @SuccessStatusId=id
+	from tbl_statusMaster
+	where name='completed';
+
+	--calculate cutoff time
+	set @CutoffTime =DATEADD(MINUTE, -@TimeoutMinutes, SYSUTCDATETIME());
+
+	begin try
+		begin transaction
+
+		--fail stale transactions 
+		update t
+        set 
+            t.statusID = @FailedStatusId,
+            t.updated  = SYSUTCDATETIME()
+        from tbl_transactions t
+        where t.statusID = @PendingStatusId
+          and t.updated < @CutoffTime;
+
+		--fail donations with no transactions 
+		update d
+        set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+        from tbl_donations d
+        where d.statusID = @PendingStatusId
+          and d.updated < @CutoffTime
+          and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+          );
+
+		  -- fail donations with no successful transactions
+		  update d
+		  set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+		  from tbl_donations d
+          where d.statusID = @PendingStatusId
+			and d.updated < @CutoffTime
+			and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+                and t.statusID = @SuccessStatusId
+          );
+
+		commit transaction;
+
+	end try
+	begin catch 
+		if @@TRANCOUNT>0
+			rollback transaction;
+
+		throw;
+	end catch
 end;
 GO
 
