@@ -10,13 +10,22 @@
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+
         .card-shadow {
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
         @@keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         .fade-in {
             animation: fadeIn 0.5s ease-out;
         }
@@ -59,6 +68,8 @@
         // Utility Functions
         async function apiCall(endpoint, options = {}) {
             try {
+                console.log(`API Call: ${API_BASE}${endpoint}`, options);
+
                 const response = await fetch(`${API_BASE}${endpoint}`, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -67,15 +78,32 @@
                     ...options
                 });
 
+                console.log(`API Response Status: ${response.status}`, response);
+
                 if (!response.ok) {
-                    const error = await response.text();
-                    throw new Error(error || 'API call failed');
+                    let errorMessage;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.title || JSON.stringify(errorData);
+                    } catch {
+                        errorMessage = await response.text() || `HTTP Error ${response.status}`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
-                return await response.json();
+                const data = await response.json();
+                console.log('API Response Data:', data);
+                return data;
             } catch (error) {
                 console.error('API Error:', error);
-                showNotification(error.message, 'error');
+
+                // More descriptive error messages
+                let userMessage = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    userMessage = 'Cannot connect to server. Please ensure:\n1. API is running (dotnet run)\n2. API URL is correct\n3. CORS is configured';
+                }
+
+                showNotification(userMessage, 'error');
                 throw error;
             }
         }
@@ -126,6 +154,14 @@
                         <p class="text-xl text-gray-600 mb-8">Join thousands of donors supporting meaningful causes</p>
                     </div>
 
+                    <!-- Connection Test Button -->
+                    <div class="mb-8">
+                        <button onclick="testConnection()" class="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition">
+                            🔌 Test API Connection
+                        </button>
+                        <div id="connectionStatus" class="mt-2 text-sm"></div>
+                    </div>
+
                     <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
                         <div class="bg-white p-6 rounded-xl card-shadow">
                             <div class="text-purple-600 text-4xl mb-4">🎯</div>
@@ -154,6 +190,38 @@
                     </div>
                 </div>
             `;
+        }
+
+        async function testConnection() {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<span class="text-blue-600">Testing connection...</span>';
+
+            try {
+                const response = await fetch(`${API_BASE}/Test/rawdata`);
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <span class="text-green-600 font-semibold">✅ Connection Successful!</span><br>
+                        <span class="text-gray-500 text-xs">API is running at ${API_BASE}</span>
+                    `;
+                    console.log('Connection test successful:', data);
+                    showNotification('API connection successful!', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <span class="text-red-600 font-semibold">❌ Connection Failed</span><br>
+                    <span class="text-gray-500 text-xs">Error: ${error.message}</span><br>
+                    <span class="text-gray-500 text-xs">
+                        Make sure:<br>
+                        1. API is running (dotnet run)<br>
+                        2. URL is correct: ${API_BASE}<br>
+                        3. CORS is enabled in Program.cs
+                    </span>
+                `;
+                console.error('Connection test failed:', error);
+            }
         }
 
         // Login Page
@@ -477,9 +545,15 @@
                                         </td>
                                         <td class="px-6 py-4">${d.updated}</td>
                                         <td class="px-6 py-4">
-                                            <button onclick="viewTransactions(${d.donationId})" class="text-purple-600 hover:underline">
+                                            <button onclick="viewTransactions(${d.donationId})" class="text-purple-600 hover:underline mr-2">
                                                 View Details
                                             </button>
+                                            ${d.status === 'failed' || d.status === 'pending' ? `
+                                                <button onclick="retryPayment(${d.donationId}, ${d.amount})"
+                                                        class="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600 transition">
+                                                    🔄 Retry Payment
+                                                </button>
+                                            ` : ''}
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -489,6 +563,46 @@
                 `;
             } catch (error) {
                 donorContent.innerHTML = '<p class="text-center text-red-500">Failed to load donations</p>';
+            }
+        }
+
+        async function retryPayment(donationId, amount) {
+            try {
+                // Create new transaction for existing donation
+                const response = await apiCall(`/Donor/transactions/${donationId}`, {
+                    method: 'POST'
+                });
+
+                // Initialize Razorpay
+                const options = {
+                    key: RAZORPAY_KEY,
+                    amount: amount * 100,
+                    currency: 'INR',
+                    name: 'DonorBridge',
+                    description: 'Retry Donation Payment',
+                    order_id: response.orderId,
+                    handler: function(razorpayResponse) {
+                        verifyPayment(razorpayResponse, donationId);
+                    },
+                    prefill: {
+                        name: 'Donor',
+                        email: 'donor@example.com'
+                    },
+                    theme: {
+                        color: '#667eea'
+                    },
+                    modal: {
+                        ondismiss: function() {
+                            showNotification('Payment cancelled. You can retry anytime.', 'error');
+                            showMyDonations(); // Refresh the list
+                        }
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                showNotification('Failed to initiate retry payment', 'error');
             }
         }
 
@@ -594,14 +708,14 @@
                         <p class="text-gray-600">Manage users, donations, and transactions</p>
                     </div>
 
-                    <div class="flex space-x-4 mb-8">
-                        <button onclick="showAllUsers()" class="px-6 py-3 gradient-bg text-white rounded-lg hover:opacity-90">
+                    <div class="flex space-x-4 mb-8" id="adminTabs">
+                        <button onclick="showAllUsers()" id="tabUsers" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
                             All Users
                         </button>
-                        <button onclick="showAllDonations()" class="px-6 py-3 bg-white text-purple-600 border-2 border-purple-600 rounded-lg hover:bg-purple-50">
+                        <button onclick="showAllDonations()" id="tabDonations" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
                             All Donations
                         </button>
-                        <button onclick="showAllTransactions()" class="px-6 py-3 bg-white text-purple-600 border-2 border-purple-600 rounded-lg hover:bg-purple-50">
+                        <button onclick="showAllTransactions()" id="tabTransactions" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
                             All Transactions
                         </button>
                     </div>
@@ -615,7 +729,23 @@
             showAllUsers();
         }
 
+        function setActiveTab(tabId) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.admin-tab').forEach(tab => {
+                tab.classList.remove('gradient-bg', 'text-white');
+                tab.classList.add('bg-white', 'text-purple-600', 'border-2', 'border-purple-600');
+            });
+
+            // Add active class to selected tab
+            const activeTab = document.getElementById(tabId);
+            if (activeTab) {
+                activeTab.classList.remove('bg-white', 'text-purple-600', 'border-2', 'border-purple-600');
+                activeTab.classList.add('gradient-bg', 'text-white');
+            }
+        }
+
         async function showAllUsers() {
+            setActiveTab('tabUsers');
             const adminContent = document.getElementById('adminContent');
             adminContent.innerHTML = '<p class="text-center">Loading...</p>';
 
@@ -626,7 +756,7 @@
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-2xl font-bold">All Users</h3>
                         <button onclick="exportUsers()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
-                            Export CSV
+                            📥 Export CSV
                         </button>
                     </div>
                     <div class="mb-4">
@@ -702,6 +832,7 @@
         }
 
         async function showAllDonations() {
+            setActiveTab('tabDonations');
             const adminContent = document.getElementById('adminContent');
             adminContent.innerHTML = '<p class="text-center">Loading...</p>';
 
@@ -790,6 +921,7 @@
         }
 
         async function showAllTransactions() {
+            setActiveTab('tabTransactions');
             const adminContent = document.getElementById('adminContent');
             adminContent.innerHTML = '<p class="text-center">Loading...</p>';
 
