@@ -60,4 +60,7 @@
   <ItemGroup>
     <None Include="CreateDatabase.sql" />
   </ItemGroup>
+  <ItemGroup>
+    <Build Include="StoredProcedures.sql" />
+  </ItemGroup>
 </Project>
