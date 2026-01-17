@@ -34,21 +34,21 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             }
         }
         // GET: api/<DonorController>
-        [HttpGet("{id}")]
-        public async Task<ActionResult<IEnumerable<DonorDonationResponse>>> GetAllDonations(int id)
+        [HttpGet("donations/{registrationId}")]
+        public async Task<ActionResult<IEnumerable<DonorDonationResponse>>> GetAllDonations(int registrationId)
         {
-            return Ok(await _donorRepository.GetAllDonationsAsync(id));
+            return Ok(await _donorRepository.GetAllDonationsAsync(registrationId));
         }
 
         // GET api/<DonorController>/5
-        [HttpGet("transactions/{id}")]
-        public async Task<ActionResult<IEnumerable<DonorTransactionResponse>>> GetTransactionsById(int id)
+        [HttpGet("transactions/{donationId}")]
+        public async Task<ActionResult<IEnumerable<DonorTransactionResponse>>> GetTransactionsById(int donationId)
         {
-            return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(id));
+            return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(donationId));
         }
 
         // POST api/<DonorController>
-        [HttpPost]
+        [HttpPost("donations")]
         public async Task<IActionResult> CreateDonation([FromBody] DonorDonationRequest request)
         {
             var donationId= await _donorRepository.CreateDonationAsync(request);
@@ -69,10 +69,10 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         }
 
         // POST api/<DonorController>/5
-        [HttpPost("{id}")]
+        [HttpPost("transactions/{donationId}")]
         public async Task<IActionResult> CreateTransaction(int donationId)
         {
-            RazorpayClient client = new RazorpayClient("rzp_test_key", "rzp_test_secret");
+            RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
             Dictionary<string, object> options = new Dictionary<string, object>();
             options.Add("amount", await _donorRepository.GetAmountForDonation(donationId) * 100); // amount in the smallest currency unit
             options.Add("currency", "INR");
@@ -95,7 +95,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             string payload = request.RazorpayOrderId + "|" + request.RazorpayPaymentId;
 
             // 2. Secret Key from your Gateway Dashboard
-            string secret = "rzp_test_secret";
+            string secret = "hTCHeig0h1mZPiqoN1qbvg2A";
 
             // 3. Generate HMAC-SHA256 Hash
             string generatedSignature = CalculateHash(payload, secret);

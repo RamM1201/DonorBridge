@@ -18,7 +18,7 @@ namespace IITR.DonorBridge.WebAPI.DataService.Repositories
         public async Task<IEnumerable<DonorDonationResponse>> GetAllDonationsAsync(int donorId)
         {
             using var conn = _dbProvider.GetConnection();
-            return await conn.QueryAsync<DonorDonationResponse>(DbStoredProcedure.Donor_GetAllDonations, new { RegistrationID = donorId }, commandType: System.Data.CommandType.StoredProcedure);
+            return await conn.QueryAsync<DonorDonationResponse>(DbStoredProcedure.Donor_GetAllDonations, new { UserRegistrationID = donorId }, commandType: System.Data.CommandType.StoredProcedure);
         }
         public async Task<IEnumerable<DonorTransactionResponse>> GetTransactionsByDonationIdAsync(int donationId)
         {

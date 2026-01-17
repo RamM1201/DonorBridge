@@ -10,5 +10,6 @@ namespace IITR.DonorBridge.WebAPI.DataService.Interfaces
     {
         Task<IEnumerable<RegistrationResponse>> GetAllRegistrationsAsync();
         Task<IEnumerable<AdminDonationResponse>> GetAllDonationsAsync();
+        Task<IEnumerable<AdminTransactionResponse>> GetAllTransactionsAsync();
     }
 }

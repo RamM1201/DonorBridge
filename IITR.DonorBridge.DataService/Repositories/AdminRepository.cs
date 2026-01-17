@@ -26,5 +26,10 @@ namespace IITR.DonorBridge.WebAPI.DataService.Repositories
             using var conn=_dbProvider.GetConnection();
             return await conn.QueryAsync<AdminDonationResponse>(DbStoredProcedure.Admin_GetAllDonations,commandType:System.Data.CommandType.StoredProcedure);
         }
+        public async Task<IEnumerable<AdminTransactionResponse>> GetAllTransactionsAsync()
+        {
+            using var conn=_dbProvider.GetConnection();
+            return await conn.QueryAsync<AdminTransactionResponse>(DbStoredProcedure.Admin_GetAllTransactions,commandType:System.Data.CommandType.StoredProcedure);
+        }
     }
 }

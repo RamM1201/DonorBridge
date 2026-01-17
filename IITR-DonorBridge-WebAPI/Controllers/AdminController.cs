@@ -32,9 +32,9 @@ namespace IITR_DonorBridge_WebAPI.Controllers
 
         // GET: api/<AdminController>
         [HttpGet("transactions")]
-        public IEnumerable<string> GetAllTransactions()
+        public async Task<ActionResult<IEnumerable<AdminTransactionResponse>>> GetAllTransactions()
         {
-            return new string[] { "value1", "value2" };
+            return Ok(await _adminRepository.GetAllTransactionsAsync());
         }
     }
 }
