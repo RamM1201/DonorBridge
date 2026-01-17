@@ -542,3 +542,87 @@ end;
 GO
 
 
+/****** Object:  StoredProcedure [dbo].[sp_systemFailPendingRecords]    Script Date: 18-01-2026 00:31:20 ******/
+
+create or alter procedure [dbo].[sp_systemFailPendingRecords]
+	@TimeoutMinutes INT=1
+
+as 
+begin
+	set nocount on;
+
+	declare @PendingStatusId INT;
+	declare @FailedStatusId INT;
+	declare @SuccessStatusId INT;
+	declare @CutoffTime DATETIME2(0);
+
+	--resolve status id
+	select @PendingStatusId =id
+	from tbl_statusMaster
+	where name='pending';
+
+	select @FailedStatusId=id
+	from tbl_statusMaster
+	where name='failed';
+
+	select @SuccessStatusId=id
+	from tbl_statusMaster
+	where name='completed';
+
+	--calculate cutoff time
+	set @CutoffTime =DATEADD(MINUTE, -@TimeoutMinutes, SYSUTCDATETIME());
+
+	begin try
+		begin transaction
+
+		--fail stale transactions 
+		update t
+        set 
+            t.statusID = @FailedStatusId,
+            t.updated  = SYSUTCDATETIME()
+        from tbl_transactions t
+        where t.statusID = @PendingStatusId
+          and t.updated < @CutoffTime;
+
+		--fail donations with no transactions 
+		update d
+        set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+        from tbl_donations d
+        where d.statusID = @PendingStatusId
+          and d.updated < @CutoffTime
+          and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+          );
+
+		  -- fail donations with no successful transactions
+		  update d
+		  set 
+            d.statusID = @FailedStatusId,
+            d.updated  = SYSUTCDATETIME()
+		  from tbl_donations d
+          where d.statusID = @PendingStatusId
+			and d.updated < @CutoffTime
+			and not exists(
+              select 1
+              from tbl_transactions t
+              where t.donationID = d.id
+                and t.statusID = @SuccessStatusId
+          );
+
+		commit transaction;
+
+	end try
+	begin catch 
+		if @@TRANCOUNT>0
+			rollback transaction;
+
+		throw;
+	end catch
+end;
+GO
+
+
