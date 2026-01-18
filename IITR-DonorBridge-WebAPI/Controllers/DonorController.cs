@@ -1,5 +1,6 @@
 ﻿using IITR.DonorBridge.WebAPI.DataService.Interfaces;
 using IITR.DonorBridge.WebAPI.DataService.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Diagnostics;
 using Org.BouncyCastle.Bcpg.OpenPgp;
@@ -13,6 +14,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "donor")]
     public class DonorController : ControllerBase
     {
         private readonly IDonorRepository _donorRepository;
@@ -37,91 +39,120 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         [HttpGet("donations/{registrationId}")]
         public async Task<ActionResult<IEnumerable<DonorDonationResponse>>> GetAllDonations(int registrationId)
         {
-            return Ok(await _donorRepository.GetAllDonationsAsync(registrationId));
+            try
+            { return Ok(await _donorRepository.GetAllDonationsAsync(registrationId)); }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
         }
 
         // GET api/<DonorController>/5
         [HttpGet("transactions/{donationId}")]
         public async Task<ActionResult<IEnumerable<DonorTransactionResponse>>> GetTransactionsById(int donationId)
         {
-            return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(donationId));
+            try { return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(donationId)); }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
         }
 
         // POST api/<DonorController>
         [HttpPost("donations")]
         public async Task<IActionResult> CreateDonation([FromBody] DonorDonationRequest request)
         {
-            var donationId= await _donorRepository.CreateDonationAsync(request);
-            RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
-            Dictionary<string, object> options = new Dictionary<string, object>();
-            options.Add("amount", request.Amount * 100); // amount in the smallest currency unit
-            options.Add("currency", "INR");
-            options.Add("receipt", "order_rcptid_" + donationId);
-            Order order = client.Order.Create(options);
-            string orderId = order["id"].ToString();
-            DonorTransactionRequest transactionRequest = new DonorTransactionRequest
+            try
             {
-                DonationId = donationId,
-                OrderId = orderId
-            };
-            var transactionId = await _donorRepository.CreateTransactionAsync(transactionRequest);
-            return StatusCode(201, new { DonationId = donationId, OrderId = orderId });
+                var donationId = await _donorRepository.CreateDonationAsync(request);
+                RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
+                Dictionary<string, object> options = new Dictionary<string, object>();
+                options.Add("amount", request.Amount * 100); // amount in the smallest currency unit
+                options.Add("currency", "INR");
+                options.Add("receipt", "order_rcptid_" + donationId);
+                Order order = client.Order.Create(options);
+                string orderId = order["id"].ToString();
+                DonorTransactionRequest transactionRequest = new DonorTransactionRequest
+                {
+                    DonationId = donationId,
+                    OrderId = orderId
+                };
+                var transactionId = await _donorRepository.CreateTransactionAsync(transactionRequest);
+                return StatusCode(201, new { DonationId = donationId, OrderId = orderId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
         }
 
         // POST api/<DonorController>/5
         [HttpPost("transactions/{donationId}")]
         public async Task<IActionResult> CreateTransaction(int donationId)
         {
-            RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
-            Dictionary<string, object> options = new Dictionary<string, object>();
-            options.Add("amount", await _donorRepository.GetAmountForDonation(donationId) * 100); // amount in the smallest currency unit
-            options.Add("currency", "INR");
-            options.Add("receipt", "order_rcptid_" + donationId);
-            Order order = client.Order.Create(options);
-            string orderId = order["id"].ToString();
-            DonorTransactionRequest transactionRequest = new DonorTransactionRequest
+            try
             {
-                DonationId = donationId,
-                OrderId = orderId
-            };
-            var transactionId = await _donorRepository.CreateTransactionAsync(transactionRequest);
-            return StatusCode(201, new { DonationId = donationId, OrderId = orderId });
+                RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
+                Dictionary<string, object> options = new Dictionary<string, object>();
+                options.Add("amount", await _donorRepository.GetAmountForDonation(donationId) * 100); // amount in the smallest currency unit
+                options.Add("currency", "INR");
+                options.Add("receipt", "order_rcptid_" + donationId);
+                Order order = client.Order.Create(options);
+                string orderId = order["id"].ToString();
+                DonorTransactionRequest transactionRequest = new DonorTransactionRequest
+                {
+                    DonationId = donationId,
+                    OrderId = orderId
+                };
+                var transactionId = await _donorRepository.CreateTransactionAsync(transactionRequest);
+                return StatusCode(201, new { DonationId = donationId, OrderId = orderId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
         }
 
         [HttpPost("verify")]
         public async Task<ActionResult<DonorTransactionResponse>> VerifyPayment([FromBody] PaymentVerificationRequest request)
         {
-            // 1. Combine OrderID and PaymentID with a '|'
-            string payload = request.RazorpayOrderId + "|" + request.RazorpayPaymentId;
+            try
+            {// 1. Combine OrderID and PaymentID with a '|'
+                string payload = request.RazorpayOrderId + "|" + request.RazorpayPaymentId;
 
-            // 2. Secret Key from your Gateway Dashboard
-            string secret = "hTCHeig0h1mZPiqoN1qbvg2A";
+                // 2. Secret Key from your Gateway Dashboard
+                string secret = "hTCHeig0h1mZPiqoN1qbvg2A";
 
-            // 3. Generate HMAC-SHA256 Hash
-            string generatedSignature = CalculateHash(payload, secret);
+                // 3. Generate HMAC-SHA256 Hash
+                string generatedSignature = CalculateHash(payload, secret);
 
-            // 4. THE CRITICAL CHECK
-            if (generatedSignature == request.RazorpaySignature)
-            {
-                TransactionStatusUpdateRequest transactionStatusUpdateRequest = new TransactionStatusUpdateRequest
+                // 4. THE CRITICAL CHECK
+                if (generatedSignature == request.RazorpaySignature)
                 {
-                    OrderId = request.RazorpayOrderId,
-                    Status = "completed",
-                    PaymentId = request.RazorpayPaymentId
-                };
-                var response = await _donorRepository.UpdateDonationStatus(transactionStatusUpdateRequest);
-                return StatusCode(201,response);
+                    TransactionStatusUpdateRequest transactionStatusUpdateRequest = new TransactionStatusUpdateRequest
+                    {
+                        OrderId = request.RazorpayOrderId,
+                        Status = "completed",
+                        PaymentId = request.RazorpayPaymentId
+                    };
+                    var response = await _donorRepository.UpdateDonationStatus(transactionStatusUpdateRequest);
+                    return StatusCode(201, response);
+                }
+                else
+                {
+                    TransactionStatusUpdateRequest transactionStatusUpdateRequest = new TransactionStatusUpdateRequest
+                    {
+                        OrderId = request.RazorpayOrderId,
+                        Status = "failed",
+                        PaymentId = null
+                    };
+                    var respons = await _donorRepository.UpdateDonationStatus(transactionStatusUpdateRequest);
+                    return BadRequest("Invalid Signature. Payment could not be verified.");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                TransactionStatusUpdateRequest transactionStatusUpdateRequest = new TransactionStatusUpdateRequest
-                {
-                    OrderId = request.RazorpayOrderId,
-                    Status = "failed",
-                    PaymentId = null
-                };
-                var respons=await _donorRepository.UpdateDonationStatus(transactionStatusUpdateRequest);
-                return BadRequest("Invalid Signature. Payment could not be verified.");
+                return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
     }
