@@ -2,23 +2,38 @@
 
 A comprehensive donor management platform that facilitates secure donation processing, user registration, and administrative oversight with enterprise-grade security features.
 
+## Deployment 
+
+The DonorBridge platform is fully deployed on Microsoft Azure, leveraging Azure’s managed services to ensure high availability, scalability, security, and maintainability across all application layers.  
+
+Database Deployment on Microsoft SQL Server (Azure SQL Database), fully managed and hosted on Azure SQL Database.  
+
+**Website URL**: https://donorbridge-iitr-ezf3hfhrh6ardvgm.southeastasia-01.azurewebsites.net/  
+**API URL**: https://donorbridge-iitr-ezf3hfhrh6ardvgm.southeastasia-01.azurewebsites.net/api/  
+
+_____________________________________________________________________
+
 ## Features
 
 ### Core Functionality
-______________________________________________________________________
-Secure Authentication - JWT-based authentication with role-based authorization  
-Donation Processing - Integrated payment gateway (Razorpay) for secure transactions  
-User Management - Complete user registration and profile management   
-Admin Dashboard - Comprehensive reporting and monitoring capabilities  
-Transaction Tracking - Real-time donation and payment status monitoring   
 
-### Technical Features
+**Secure Authentication** - JWT-based authentication with role-based authorization  
+**Donation Processing** - Integrated payment gateway (Razorpay) for secure transactions  
+**User Management** - Complete user registration and profile management   
+**Admin Dashboard** - Comprehensive reporting and monitoring capabilities  
+**Transaction Tracking** - Real-time donation and payment status monitoring   
+
 ______________________________________________________________________
-JWT Authentication - Stateless token-based authentication  
-Structured Logging - Serilog integration for comprehensive audit trails  
-Global Exception Handling - Centralized error management with standardized responses  
-RESTful API - Clean, well-documented REST endpoints   
-Stored Procedures - Optimized database operations with pre-compiled execution plans   
+### Technical Features
+
+**JWT Authentication** - Stateless token-based authentication  
+**Structured Logging** - Serilog integration for comprehensive audit trails  
+**Global Exception Handling** - Centralized error management with standardized responses  
+**RESTful API** - Clean, well-documented REST endpoints   
+**Stored Procedures** - Optimized database operations with pre-compiled execution plans   
+
+______________________________________________________________________
+
 
 ## Technology Stack 
 
@@ -34,7 +49,7 @@ Stored Procedures - Optimized database operations with pre-compiled execution pl
 | API Documentation  | Swagger / OpenAPI            | 10.1.0      |
 | Exception Handling | Custom Middleware (Built-in) | —           |
 
-
+________________________________________________________________________
 
 ## Project Structure 
 
@@ -71,7 +86,7 @@ DonorBridge/
 └── README.md                             
 
 
-
+________________________________________________________________
 
 ## Authors
   ### Ram Maheshwari 
