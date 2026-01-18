@@ -11,7 +11,6 @@ namespace IITR_DonorBridge_WebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
@@ -23,6 +22,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         }
         // GET api/<UserController>/5
         [HttpGet("registration/{id}")]
+        [Authorize]
         public async Task<ActionResult<RegistrationResponse>> GetUserRegistrationByID(int id)
         {
             try {
@@ -43,6 +43,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
 
         // POST api/<UserController>
         [HttpPost("registration",Name ="UserRegistration")]
+        [AllowAnonymous]
         public async Task<ActionResult<LoginResponse>> CreateUserRegistration([FromBody] RegistrationRequest request)
         {
             try 
