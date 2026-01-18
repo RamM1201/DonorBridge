@@ -57,28 +57,51 @@
     <script>
         // Configuration
         const API_BASE = 'http://localhost:5183/api';
-        const RAZORPAY_KEY = 'rzp_test_S4vqgKplB3Kh5m'; // Update with your key
+        const RAZORPAY_KEY = 'rzp_test_S4vqgKplB3Kh5m';
 
         // State Management
         const state = {
             user: null,
+            token: null,
             currentView: 'landing'
         };
 
         // Utility Functions
+        function getAuthHeaders() {
+            if (state.token) {
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.token}`
+                };
+            }
+            return {
+                'Content-Type': 'application/json'
+            };
+        }
+
         async function apiCall(endpoint, options = {}) {
             try {
                 console.log(`API Call: ${API_BASE}${endpoint}`, options);
 
+                // Merge headers properly
+                const headers = {
+                    ...getAuthHeaders(),
+                    ...(options.headers || {})
+                };
+
                 const response = await fetch(`${API_BASE}${endpoint}`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    },
-                    ...options
+                    ...options,
+                    headers: headers
                 });
 
                 console.log(`API Response Status: ${response.status}`, response);
+
+                // Handle 401 Unauthorized - token expired or invalid
+                if (response.status === 401) {
+                    showNotification('Session expired. Please login again.', 'error');
+                    logout();
+                    throw new Error('Unauthorized');
+                }
 
                 if (!response.ok) {
                     let errorMessage;
@@ -97,13 +120,14 @@
             } catch (error) {
                 console.error('API Error:', error);
 
-                // More descriptive error messages
-                let userMessage = error.message;
-                if (error.message.includes('Failed to fetch')) {
-                    userMessage = 'Cannot connect to server. Please ensure:\n1. API is running (dotnet run)\n2. API URL is correct\n3. CORS is configured';
+                // Don't show notification for unauthorized errors (already shown above)
+                if (error.message !== 'Unauthorized') {
+                    let userMessage = error.message;
+                    if (error.message.includes('Failed to fetch')) {
+                        userMessage = 'Cannot connect to server. Please ensure the API is running.';
+                    }
+                    showNotification(userMessage, 'error');
                 }
-
-                showNotification(userMessage, 'error');
                 throw error;
             }
         }
@@ -222,19 +246,36 @@
             const password = document.getElementById('loginPassword').value;
 
             try {
+                // Login API call - no auth header needed for login
                 const response = await apiCall('/Auth', {
                     method: 'POST',
-                    body: JSON.stringify({ userId, password })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userID: userId, password: password })
                 });
 
-                // Fetch user profile to get first name
+                // Store token and user info
+                state.token = response.token.accessToken;
+                state.user = {
+                    registrationID: response.registrationID,
+                    role: response.role
+                };
+
+                // Fetch user profile to get first name (only for non-admin users)
                 if (response.role !== 'admin') {
-                    const profile = await apiCall(`/User/registration/${response.registrationID}`);
-                    response.firstName = profile.name.split(' ')[0]; // Extract first name
+                    try {
+                        const profile = await apiCall(`/User/registration/${response.registrationID}`);
+                        state.user.firstName = profile.name.split(' ')[0];
+                    } catch (error) {
+                        console.error('Failed to fetch profile:', error);
+                        state.user.firstName = 'User';
+                    }
+                } else {
+                    state.user.firstName = 'Admin';
                 }
 
-                state.user = response;
-                localStorage.setItem('user', JSON.stringify(response));
+                // Save to localStorage
+                localStorage.setItem('token', state.token);
+                localStorage.setItem('user', JSON.stringify(state.user));
 
                 showNotification('Login successful!');
                 renderNav();
@@ -245,7 +286,7 @@
                     showDonorDashboard();
                 }
             } catch (error) {
-                // Error already handled in apiCall
+                console.error('Login failed:', error);
             }
         }
 
@@ -337,22 +378,17 @@
             };
 
             try {
+                // Registration doesn't require auth token
                 const response = await apiCall('/User/registration', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
 
-                // Add firstName from form
-                response.firstName = data.firstName;
-
-                state.user = response;
-                localStorage.setItem('user', JSON.stringify(response));
-
-                showNotification('Registration successful!');
-                renderNav();
-                showDonorDashboard();
+                showNotification('Registration successful! Please login.');
+                showLogin();
             } catch (error) {
-                // Error already handled
+                console.error('Registration failed:', error);
             }
         }
 
@@ -459,7 +495,7 @@
                 const rzp = new Razorpay(options);
                 rzp.open();
             } catch (error) {
-                // Error handled
+                console.error('Donation creation failed:', error);
             }
         }
 
@@ -540,12 +576,10 @@
 
         async function retryPayment(donationId, amount) {
             try {
-                // Create new transaction for existing donation
                 const response = await apiCall(`/Donor/transactions/${donationId}`, {
                     method: 'POST'
                 });
 
-                // Initialize Razorpay
                 const options = {
                     key: RAZORPAY_KEY,
                     amount: amount * 100,
@@ -566,7 +600,7 @@
                     modal: {
                         ondismiss: function() {
                             showNotification('Payment cancelled. You can retry anytime.', 'error');
-                            showMyDonations(); // Refresh the list
+                            showMyDonations();
                         }
                     }
                 };
@@ -619,7 +653,7 @@
                     </div>
                 `;
             } catch (error) {
-                // Error handled
+                donorContent.innerHTML = '<p class="text-center text-red-500">Failed to load transactions</p>';
             }
         }
 
@@ -702,13 +736,11 @@
         }
 
         function setActiveTab(tabId) {
-            // Remove active class from all tabs
             document.querySelectorAll('.admin-tab').forEach(tab => {
                 tab.classList.remove('gradient-bg', 'text-white');
                 tab.classList.add('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
             });
 
-            // Add active class to selected tab
             const activeTab = document.getElementById(tabId);
             if (activeTab) {
                 activeTab.classList.remove('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
@@ -942,17 +974,23 @@
 
         function logout() {
             state.user = null;
+            state.token = null;
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
             renderNav();
             showLanding();
         }
 
         // Initialize
         window.onload = function() {
+            const savedToken = localStorage.getItem('token');
             const savedUser = localStorage.getItem('user');
-            if (savedUser) {
+
+            if (savedToken && savedUser) {
+                state.token = savedToken;
                 state.user = JSON.parse(savedUser);
                 renderNav();
+
                 if (state.user.role === 'admin') {
                     showAdminDashboard();
                 } else {
