@@ -32,3 +32,40 @@ Payment Gateway        Razorpay                3.3.2
 API Documentation      Swagger/OpenAPI         10.1.0
 Exception Handling     Custom Middleware       Built-in
 
+
+## Project Structure 
+
+DonorBridge/
+├── IITR-DonorBridge-Database/          # SQL Server Database Project
+│   ├── CreateDatabase.sql              # Database creation script
+│   ├── StoredProcedures.sql            # All stored procedures
+│   └── IITR.DonorBridge.Database.sqlproj
+│
+├── IITR-DonorBridge-WebAPI/            # ASP.NET Core Web API
+│   ├── Controllers/                    # API Controllers
+│   │   ├── AuthController.cs
+│   │   ├── DonorController.cs
+│   │   ├── UserController.cs
+│   │   └── AdminController.cs
+│   ├── Middleware/                     # Custom Middleware
+│   ├── Program.cs                      # Application startup
+│   └── appsettings.json               # Configuration
+│
+├── IITR.DonorBridge.DataService/       # Data Access Layer
+│   ├── Interfaces/                     # Repository interfaces
+│   ├── Repositories/                   # Repository implementations
+│   ├── Models/                         # DTOs and models
+│   └── DbProvider.cs                   # Database connection provider
+│
+├── IITR.DonorBridge.WebApp/            # ASP.NET Core MVC Web Application
+│   ├── Controllers/                    # MVC Controllers
+│   ├── Views/                          # Razor views
+│   ├── Services/                       # HTTP services
+│   └── wwwroot/                        # Static files
+│
+├── DonorBridge.slnx                    # Solution file
+└── README.md                           # This file
+
+##Authors
+  ### Ram Maheshwari 
+  ### Ayush Kushwaha
