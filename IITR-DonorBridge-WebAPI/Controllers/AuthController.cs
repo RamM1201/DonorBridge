@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -20,10 +21,12 @@ namespace IITR_DonorBridge_WebAPI.Controllers
     {
         private readonly IAuthRepository _authRepository;
         private readonly IConfiguration _config;
-        public AuthController(IAuthRepository authRepository, IConfiguration config)
+        private readonly ILogger<AuthController> _logger;
+        public AuthController(IAuthRepository authRepository, IConfiguration config, ILogger<AuthController> logger)
         {
             _authRepository = authRepository;
             _config = config;
+            _logger = logger;
         }
         // GET: api/<LoginController>
         [HttpPost]
@@ -31,16 +34,19 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         public async Task<ActionResult<LoginResponse>> GetLogin([FromBody] LoginRequest request)
         {
             try
-            {var response = await _authRepository.GetLoginAsync(request);
-            if (response == null)
             {
+                var response = await _authRepository.GetLoginAsync(request);
+                _logger.LogInformation("Login attempt for username {Username}", request.UserID);
+                if (response == null)
+                {
                 return Unauthorized("Invalid credentials");
-            }
-            response.Token = CreateJwtToken(request, response);
+                }
+                response.Token = CreateJwtToken(request, response);
                 return Ok(response);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred during login attempt for username {Username}", request.UserID);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }

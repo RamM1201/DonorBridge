@@ -7,6 +7,7 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 using Razorpay.Api;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -18,9 +19,11 @@ namespace IITR_DonorBridge_WebAPI.Controllers
     public class DonorController : ControllerBase
     {
         private readonly IDonorRepository _donorRepository;
-        public DonorController(IDonorRepository donorRepository)
+        private readonly ILogger<DonorController> _logger;
+        public DonorController(IDonorRepository donorRepository, ILogger<DonorController> logger)
         {
             _donorRepository = donorRepository;
+            _logger = logger;
         }
         private string CalculateHash(string payload, string secret)
         {
@@ -40,9 +43,13 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         public async Task<ActionResult<IEnumerable<DonorDonationResponse>>> GetAllDonations(int registrationId)
         {
             try
-            { return Ok(await _donorRepository.GetAllDonationsAsync(registrationId)); }
+            {
+                _logger.LogInformation("Donor with registrationId {RegistrationId} requested all donations", registrationId);
+                return Ok(await _donorRepository.GetAllDonationsAsync(registrationId)); 
+            }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while donor with registrationId {RegistrationId} fetching all donations", registrationId);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
@@ -51,9 +58,13 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         [HttpGet("transactions/{donationId}")]
         public async Task<ActionResult<IEnumerable<DonorTransactionResponse>>> GetTransactionsById(int donationId)
         {
-            try { return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(donationId)); }
+            try { 
+                _logger.LogInformation("Donor requested transactions for donationId {DonationId}", donationId);
+                return Ok(await _donorRepository.GetTransactionsByDonationIdAsync(donationId)); 
+            }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while donor fetching transactions for donationId {DonationId}", donationId);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
@@ -64,6 +75,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Donor with registrationId {RegistrationId} is creating a donation", request.UserRegistrationId);
                 var donationId = await _donorRepository.CreateDonationAsync(request);
                 RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
                 Dictionary<string, object> options = new Dictionary<string, object>();
@@ -82,6 +94,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while donor with registrationId {RegistrationId} creating a donation", request.UserRegistrationId);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
@@ -92,6 +105,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Donor is creating a transaction for donationId {DonationId}", donationId);
                 RazorpayClient client = new RazorpayClient("rzp_test_S4vqgKplB3Kh5m", "hTCHeig0h1mZPiqoN1qbvg2A");
                 Dictionary<string, object> options = new Dictionary<string, object>();
                 options.Add("amount", await _donorRepository.GetAmountForDonation(donationId) * 100); // amount in the smallest currency unit
@@ -109,6 +123,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while donor creating a transaction for donationId {DonationId}", donationId);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
@@ -117,7 +132,9 @@ namespace IITR_DonorBridge_WebAPI.Controllers
         public async Task<ActionResult<DonorTransactionResponse>> VerifyPayment([FromBody] PaymentVerificationRequest request)
         {
             try
-            {// 1. Combine OrderID and PaymentID with a '|'
+            {
+                _logger.LogInformation("Verifying payment for OrderId {OrderId}", request.RazorpayOrderId);
+                // 1. Combine OrderID and PaymentID with a '|'
                 string payload = request.RazorpayOrderId + "|" + request.RazorpayPaymentId;
 
                 // 2. Secret Key from your Gateway Dashboard
@@ -152,6 +169,7 @@ namespace IITR_DonorBridge_WebAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while verifying payment for OrderId {OrderId}", request.RazorpayOrderId);
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
