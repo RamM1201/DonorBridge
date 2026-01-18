@@ -28,28 +28,19 @@ Clean, well-documented REST endpoints
 #### Stored Procedures - 
 Optimized database operations with pre-compiled execution plans 
 
-## Technology Stack
+## Technology Stack 
 
-Component​              Technology              Version
-__________________________________________________________
-
-Backend Framework      ASP.NET Core Web API    .NET 10.0    
-
-Frontend Framework     ASP.NET Core MVC        .NET 10.0
-
-Database               Microsoft SQL Server    2022
-
-ORM                    Dapper(Micro ORM)       2.1.66
-
-Authentication         JWT                     Built-in
-
-Logging                Serilog                 Latest
-
-Payment Gateway        Razorpay                3.3.2
-
-API Documentation      Swagger/OpenAPI         10.1.0
-
-Exception Handling     Custom Middleware       Built-in
+| **Component**      | **Technology**               | **Version** |
+| ------------------ | ---------------------------- | ----------- |
+| Backend Framework  | ASP.NET Core Web API         | .NET 10.0   |
+| Frontend Framework | ASP.NET Core MVC             | .NET 10.0   |
+| Database           | Microsoft SQL Server         | 2022        |
+| ORM                | Dapper (Micro ORM)           | 2.1.66      |
+| Authentication     | JWT (Built-in)               | —           |
+| Logging            | Serilog                      | Latest      |
+| Payment Gateway    | Razorpay                     | 3.3.2       |
+| API Documentation  | Swagger / OpenAPI            | 10.1.0      |
+| Exception Handling | Custom Middleware (Built-in) | —           |
 
 
 
@@ -116,6 +107,6 @@ DonorBridge/
 └── README.md                           # This file
 
 
-##Authors
+## Authors
   ### Ram Maheshwari 
   ### Ayush Kushwaha
