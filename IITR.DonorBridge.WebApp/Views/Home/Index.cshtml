@@ -1,8 +1,1006 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
-}
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DonorBridge - NGO Donation Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+        }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z" />
+                    </svg>
+                    <h1 class="text-2xl font-bold">DonorBridge</h1>
+                </div>
+                <div id="navButtons" class="space-x-4">
+                    <!-- Dynamic buttons will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <div id="mainContent" class="container mx-auto px-4 py-8">
+        <!-- Content will be dynamically loaded here -->
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:5183/api';
+        const RAZORPAY_KEY = 'rzp_test_S4vqgKplB3Kh5m';
+
+        // State Management
+        const state = {
+            user: null,
+            token: null,
+            currentView: 'landing'
+        };
+
+        // Utility Functions
+        function getAuthHeaders() {
+            if (state.token) {
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.token}`
+                };
+            }
+            return {
+                'Content-Type': 'application/json'
+            };
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                console.log(`API Call: ${API_BASE}${endpoint}`, options);
+
+                // Merge headers properly
+                const headers = {
+                    ...getAuthHeaders(),
+                    ...(options.headers || {})
+                };
+
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers: headers
+                });
+
+                console.log(`API Response Status: ${response.status}`, response);
+
+                // Handle 401 Unauthorized - token expired or invalid
+                if (response.status === 401) {
+                    showNotification('Session expired. Please login again.', 'error');
+                    logout();
+                    throw new Error('Unauthorized');
+                }
+
+                if (!response.ok) {
+                    let errorMessage;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.title || JSON.stringify(errorData);
+                    } catch {
+                        errorMessage = await response.text() || `HTTP Error ${response.status}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                console.log('API Response Data:', data);
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+
+                // Don't show notification for unauthorized errors (already shown above)
+                if (error.message !== 'Unauthorized') {
+                    let userMessage = error.message;
+                    if (error.message.includes('Failed to fetch')) {
+                        userMessage = 'Cannot connect to server. Please ensure the API is running.';
+                    }
+                    showNotification(userMessage, 'error');
+                }
+                throw error;
+            }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg text-white z-50 fade-in ${
+                type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function renderNav() {
+            const navButtons = document.getElementById('navButtons');
+
+            if (state.user) {
+                const displayName = state.user.firstName || (state.user.role === 'admin' ? 'Admin' : 'User');
+                navButtons.innerHTML = `
+                    <span class="text-sm">Welcome, ${displayName}</span>
+                    <button onclick="logout()" class="bg-white text-sky-600 px-4 py-2 rounded-lg hover:bg-sky-50 transition">
+                        Logout
+                    </button>
+                `;
+            } else {
+                navButtons.innerHTML = `
+                    <button onclick="showLogin()" class="bg-white text-sky-600 px-4 py-2 rounded-lg hover:bg-sky-50 transition">
+                        Login
+                    </button>
+                    <button onclick="showRegister()" class="bg-sky-800 px-4 py-2 rounded-lg hover:bg-sky-900 transition">
+                        Register
+                    </button>
+                `;
+            }
+        }
+
+        // Landing Page
+        function showLanding() {
+            state.currentView = 'landing';
+            const content = document.getElementById('mainContent');
+            content.innerHTML = `
+                <div class="text-center fade-in">
+                    <div class="mb-8">
+                        <h2 class="text-5xl font-bold text-gray-800 mb-4">Make a Difference Today</h2>
+                        <p class="text-xl text-gray-600 mb-8">Join thousands of donors supporting meaningful causes</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
+                        <div class="bg-white p-6 rounded-xl card-shadow">
+                            <div class="text-sky-600 text-4xl mb-4">🎯</div>
+                            <h3 class="text-xl font-bold mb-2">Track Your Impact</h3>
+                            <p class="text-gray-600">Monitor all your donations in one place</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl card-shadow">
+                            <div class="text-sky-600 text-4xl mb-4">🔒</div>
+                            <h3 class="text-xl font-bold mb-2">Secure Payments</h3>
+                            <p class="text-gray-600">Safe and encrypted transaction processing</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl card-shadow">
+                            <div class="text-sky-600 text-4xl mb-4">📊</div>
+                            <h3 class="text-xl font-bold mb-2">Transparent Records</h3>
+                            <p class="text-gray-600">Complete visibility of your contribution history</p>
+                        </div>
+                    </div>
+
+                    <div class="space-x-4">
+                        <button onclick="showRegister()" class="gradient-bg text-white px-8 py-4 rounded-lg text-lg font-semibold hover:opacity-90 transition">
+                            Start Donating
+                        </button>
+                        <button onclick="showLogin()" class="bg-white text-sky-600 px-8 py-4 rounded-lg text-lg font-semibold border-2 border-sky-600 hover:bg-sky-50 transition">
+                            Login
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Login Page
+        function showLogin() {
+            state.currentView = 'login';
+            const content = document.getElementById('mainContent');
+            content.innerHTML = `
+                <div class="max-w-md mx-auto bg-white rounded-xl card-shadow p-8 fade-in">
+                    <h2 class="text-3xl font-bold text-center mb-6">Login</h2>
+                    <form onsubmit="handleLogin(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
+                            <input type="text" id="loginUserId" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" id="loginPassword" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600 focus:border-transparent">
+                        </div>
+                        <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
+                            Login
+                        </button>
+                    </form>
+                    <p class="text-center mt-4 text-gray-600">
+                        Don't have an account?
+                        <button onclick="showRegister()" class="text-sky-600 font-semibold hover:underline">Register</button>
+                    </p>
+                </div>
+            `;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+
+            const userId = document.getElementById('loginUserId').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                // Login API call - no auth header needed for login
+                const response = await apiCall('/Auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userID: userId, password: password })
+                });
+
+                // Store token and user info
+                state.token = response.token.accessToken;
+                state.user = {
+                    registrationID: response.registrationID,
+                    role: response.role
+                };
+
+                // Fetch user profile to get first name (only for non-admin users)
+                if (response.role !== 'admin') {
+                    try {
+                        const profile = await apiCall(`/User/registration/${response.registrationID}`);
+                        state.user.firstName = profile.name.split(' ')[0];
+                    } catch (error) {
+                        console.error('Failed to fetch profile:', error);
+                        state.user.firstName = 'User';
+                    }
+                } else {
+                    state.user.firstName = 'Admin';
+                }
+
+                // Save to localStorage
+                localStorage.setItem('token', state.token);
+                localStorage.setItem('user', JSON.stringify(state.user));
+
+                showNotification('Login successful!');
+                renderNav();
+
+                if (response.role === 'admin') {
+                    showAdminDashboard();
+                } else {
+                    showDonorDashboard();
+                }
+            } catch (error) {
+                console.error('Login failed:', error);
+            }
+        }
+
+        // Registration Page
+        function showRegister() {
+            state.currentView = 'register';
+            const content = document.getElementById('mainContent');
+            content.innerHTML = `
+                <div class="max-w-2xl mx-auto bg-white rounded-xl card-shadow p-8 fade-in">
+                    <h2 class="text-3xl font-bold text-center mb-6">Create Account</h2>
+                    <form onsubmit="handleRegister(event)" class="space-y-4">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                <input type="text" id="firstName" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                <input type="text" id="lastName" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Email <span class="text-gray-400 text-xs">(Optional)</span>
+                            </label>
+                            <input type="email" id="email" placeholder="Optional"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
+                            <input type="tel" id="mobile" required pattern="[0-9]{10}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">State</label>
+                            <select id="state" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                                <option value="">Select State</option>
+                                ${getStatesOptions()}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
+                            <input type="text" id="userId" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" id="password" required minlength="6"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                        </div>
+                        <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
+                            Register
+                        </button>
+                    </form>
+                    <p class="text-center mt-4 text-gray-600">
+                        Already have an account?
+                        <button onclick="showLogin()" class="text-sky-600 font-semibold hover:underline">Login</button>
+                    </p>
+                </div>
+            `;
+        }
+
+        function getStatesOptions() {
+            const states = [
+                'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+                'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+                'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+                'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+                'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+                'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi (National Capital Territory)'
+            ];
+            return states.map(state => `<option value="${state}">${state}</option>`).join('');
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+
+            const data = {
+                userId: document.getElementById('userId').value,
+                password: document.getElementById('password').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                email: document.getElementById('email').value || null,
+                mobile: document.getElementById('mobile').value,
+                state: document.getElementById('state').value
+            };
+
+            try {
+                // Registration doesn't require auth token
+                const response = await apiCall('/User/registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                showNotification('Registration successful! Please login.');
+                showLogin();
+            } catch (error) {
+                console.error('Registration failed:', error);
+            }
+        }
+
+        // Donor Dashboard
+        async function showDonorDashboard() {
+            state.currentView = 'donorDashboard';
+            const content = document.getElementById('mainContent');
+
+            content.innerHTML = `
+                <div class="fade-in">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-bold mb-2">Donor Dashboard</h2>
+                        <p class="text-gray-600">Manage your donations and view your impact</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-6 mb-8">
+                        <button onclick="showDonateForm()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
+                            <div class="text-sky-600 text-3xl mb-2">💰</div>
+                            <h3 class="text-xl font-bold">Make a Donation</h3>
+                            <p class="text-gray-600">Contribute to the cause</p>
+                        </button>
+
+                        <button onclick="showMyDonations()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
+                            <div class="text-sky-600 text-3xl mb-2">📝</div>
+                            <h3 class="text-xl font-bold">My Donations</h3>
+                            <p class="text-gray-600">View donation history</p>
+                        </button>
+
+                        <button onclick="showMyProfile()" class="bg-white p-6 rounded-xl card-shadow hover:shadow-xl transition text-left">
+                            <div class="text-sky-600 text-3xl mb-2">👤</div>
+                            <h3 class="text-xl font-bold">My Profile</h3>
+                            <p class="text-gray-600">View your information</p>
+                        </button>
+                    </div>
+
+                    <div id="donorContent" class="bg-white rounded-xl card-shadow p-6">
+                        <p class="text-center text-gray-500">Select an option above to get started</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showDonateForm() {
+            const donorContent = document.getElementById('donorContent');
+            donorContent.innerHTML = `
+                <h3 class="text-2xl font-bold mb-6">Make a Donation</h3>
+                <form onsubmit="handleDonation(event)" class="max-w-md">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                        <input type="number" id="donationAmount" required min="1"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-600">
+                    </div>
+                    <div class="flex space-x-2 mb-6">
+                        <button type="button" onclick="setAmount(100)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹100</button>
+                        <button type="button" onclick="setAmount(500)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹500</button>
+                        <button type="button" onclick="setAmount(1000)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹1000</button>
+                        <button type="button" onclick="setAmount(5000)" class="px-4 py-2 bg-sky-100 text-sky-600 rounded-lg hover:bg-sky-200">₹5000</button>
+                    </div>
+                    <button type="submit" class="gradient-bg text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition">
+                        Proceed to Payment
+                    </button>
+                </form>
+            `;
+        }
+
+        function setAmount(amount) {
+            document.getElementById('donationAmount').value = amount;
+        }
+
+        async function handleDonation(e) {
+            e.preventDefault();
+
+            const amount = parseInt(document.getElementById('donationAmount').value);
+
+            try {
+                const response = await apiCall('/Donor/donations', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userRegistrationId: state.user.registrationID,
+                        amount: amount
+                    })
+                });
+
+                // Initialize Razorpay
+                const options = {
+                    key: RAZORPAY_KEY,
+                    amount: amount * 100,
+                    currency: 'INR',
+                    name: 'DonorBridge',
+                    description: 'Donation Payment',
+                    order_id: response.orderId,
+                    handler: function(razorpayResponse) {
+                        verifyPayment(razorpayResponse, response.donationId);
+                    },
+                    prefill: {
+                        name: 'Donor',
+                        email: 'donor@example.com'
+                    },
+                    theme: {
+                        color: '#0ea5e9'
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                console.error('Donation creation failed:', error);
+            }
+        }
+
+        async function verifyPayment(razorpayResponse, donationId) {
+            try {
+                await apiCall('/Donor/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        razorpayOrderId: razorpayResponse.razorpay_order_id,
+                        razorpayPaymentId: razorpayResponse.razorpay_payment_id,
+                        razorpaySignature: razorpayResponse.razorpay_signature
+                    })
+                });
+
+                showNotification('Donation successful! Thank you for your contribution!');
+                showMyDonations();
+            } catch (error) {
+                showNotification('Payment verification failed', 'error');
+            }
+        }
+
+        async function showMyDonations() {
+            const donorContent = document.getElementById('donorContent');
+            donorContent.innerHTML = '<p class="text-center">Loading...</p>';
+
+            try {
+                const donations = await apiCall(`/Donor/donations/${state.user.registrationID}`);
+
+                donorContent.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-6">My Donations</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Donation ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${donations.map(d => `
+                                    <tr>
+                                        <td class="px-6 py-4">#${d.donationId}</td>
+                                        <td class="px-6 py-4">₹${d.amount}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full ${
+                                                d.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                d.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }">
+                                                ${d.status}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">${d.updated}</td>
+                                        <td class="px-6 py-4">
+                                            <button onclick="viewTransactions(${d.donationId})" class="text-sky-600 hover:underline mr-2">
+                                                View Details
+                                            </button>
+                                            ${d.status === 'failed' ? `
+                                                <button onclick="retryPayment(${d.donationId}, ${d.amount})"
+                                                        class="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600 transition">
+                                                    🔄 Retry Payment
+                                                </button>
+                                            ` : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                donorContent.innerHTML = '<p class="text-center text-red-500">Failed to load donations</p>';
+            }
+        }
+
+        async function retryPayment(donationId, amount) {
+            try {
+                const response = await apiCall(`/Donor/transactions/${donationId}`, {
+                    method: 'POST'
+                });
+
+                const options = {
+                    key: RAZORPAY_KEY,
+                    amount: amount * 100,
+                    currency: 'INR',
+                    name: 'DonorBridge',
+                    description: 'Retry Donation Payment',
+                    order_id: response.orderId,
+                    handler: function(razorpayResponse) {
+                        verifyPayment(razorpayResponse, donationId);
+                    },
+                    prefill: {
+                        name: 'Donor',
+                        email: 'donor@example.com'
+                    },
+                    theme: {
+                        color: '#0ea5e9'
+                    },
+                    modal: {
+                        ondismiss: function() {
+                            showNotification('Payment cancelled. You can retry anytime.', 'error');
+                            showMyDonations();
+                        }
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                showNotification('Failed to initiate retry payment', 'error');
+            }
+        }
+
+        async function viewTransactions(donationId) {
+            const donorContent = document.getElementById('donorContent');
+
+            try {
+                const transactions = await apiCall(`/Donor/transactions/${donationId}`);
+
+                donorContent.innerHTML = `
+                    <div class="mb-4">
+                        <button onclick="showMyDonations()" class="text-sky-600 hover:underline">← Back to Donations</button>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-6">Transaction History - Donation #${donationId}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${transactions.map(t => `
+                                    <tr>
+                                        <td class="px-6 py-4">#${t.transactionId}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full ${
+                                                t.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                t.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }">
+                                                ${t.status}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">${t.updated}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                donorContent.innerHTML = '<p class="text-center text-red-500">Failed to load transactions</p>';
+            }
+        }
+
+        async function showMyProfile() {
+            const donorContent = document.getElementById('donorContent');
+            donorContent.innerHTML = '<p class="text-center">Loading...</p>';
+
+            try {
+                const profile = await apiCall(`/User/registration/${state.user.registrationID}`);
+
+                donorContent.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-6">My Profile</h3>
+                    <div class="max-w-md space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">Name</label>
+                            <p class="text-lg">${profile.name}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">Email</label>
+                            <p class="text-lg">${profile.email || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">Mobile</label>
+                            <p class="text-lg">${profile.mobile}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">State</label>
+                            <p class="text-lg">${profile.state}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">Member Since</label>
+                            <p class="text-lg">${profile.created}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500">Verification Status</label>
+                            <span class="px-2 py-1 text-xs rounded-full ${
+                                profile.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }">
+                                ${profile.isVerified ? 'Verified' : 'Pending'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                donorContent.innerHTML = '<p class="text-center text-red-500">Failed to load profile</p>';
+            }
+        }
+
+        // Admin Dashboard
+        async function showAdminDashboard() {
+            state.currentView = 'adminDashboard';
+            const content = document.getElementById('mainContent');
+
+            content.innerHTML = `
+                <div class="fade-in">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-bold mb-2">Admin Dashboard</h2>
+                        <p class="text-gray-600">Manage users, donations, and transactions</p>
+                    </div>
+
+                    <div class="flex space-x-4 mb-8" id="adminTabs">
+                        <button onclick="showAllUsers()" id="tabUsers" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
+                            All Users
+                        </button>
+                        <button onclick="showAllDonations()" id="tabDonations" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
+                            All Donations
+                        </button>
+                        <button onclick="showAllTransactions()" id="tabTransactions" class="admin-tab px-6 py-3 rounded-lg font-semibold transition">
+                            All Transactions
+                        </button>
+                    </div>
+
+                    <div id="adminContent" class="bg-white rounded-xl card-shadow p-6">
+                        <p class="text-center text-gray-500">Select an option above to view data</p>
+                    </div>
+                </div>
+            `;
+
+            showAllUsers();
+        }
+
+        function setActiveTab(tabId) {
+            document.querySelectorAll('.admin-tab').forEach(tab => {
+                tab.classList.remove('gradient-bg', 'text-white');
+                tab.classList.add('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
+            });
+
+            const activeTab = document.getElementById(tabId);
+            if (activeTab) {
+                activeTab.classList.remove('bg-white', 'text-sky-600', 'border-2', 'border-sky-600');
+                activeTab.classList.add('gradient-bg', 'text-white');
+            }
+        }
+
+        async function showAllUsers() {
+            setActiveTab('tabUsers');
+            const adminContent = document.getElementById('adminContent');
+            adminContent.innerHTML = '<p class="text-center">Loading...</p>';
+
+            try {
+                const users = await apiCall('/Admin/users');
+
+                adminContent.innerHTML = `
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-bold">All Users</h3>
+                        <button onclick="exportUsers()" class="bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700">
+                            📥 Export CSV
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <input type="text" id="userSearch" onkeyup="filterUsers()" placeholder="Search by name, email, or state..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="usersTable">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mobile</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verified</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${users.map(u => `
+                                    <tr class="user-row">
+                                        <td class="px-6 py-4">${u.name}</td>
+                                        <td class="px-6 py-4">${u.email || 'Not provided'}</td>
+                                        <td class="px-6 py-4">${u.mobile}</td>
+                                        <td class="px-6 py-4">${u.state}</td>
+                                        <td class="px-6 py-4">${u.created}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full ${
+                                                u.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                            }">
+                                                ${u.isVerified ? 'Yes' : 'Pending'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                adminContent.innerHTML = '<p class="text-center text-red-500">Failed to load users</p>';
+            }
+        }
+
+        function filterUsers() {
+            const input = document.getElementById('userSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('.user-row');
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(input) ? '' : 'none';
+            });
+        }
+
+        function exportUsers() {
+            const table = document.getElementById('usersTable');
+            let csv = [];
+
+            for (let row of table.rows) {
+                let rowData = [];
+                for (let cell of row.cells) {
+                    rowData.push(cell.textContent.trim());
+                }
+                csv.push(rowData.join(','));
+            }
+
+            const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'users.csv';
+            a.click();
+        }
+
+        async function showAllDonations() {
+            setActiveTab('tabDonations');
+            const adminContent = document.getElementById('adminContent');
+            adminContent.innerHTML = '<p class="text-center">Loading...</p>';
+
+            try {
+                const donations = await apiCall('/Admin/donations');
+
+                let totalAmount = 0;
+                let completedCount = 0;
+
+                donations.forEach(d => {
+                    if (d.status === 'completed') {
+                        totalAmount += d.amount;
+                        completedCount++;
+                    }
+                });
+
+                adminContent.innerHTML = `
+                    <div class="grid md:grid-cols-3 gap-6 mb-6">
+                        <div class="bg-sky-50 p-4 rounded-lg">
+                            <div class="text-sm text-sky-600 mb-1">Total Donations</div>
+                            <div class="text-2xl font-bold">${donations.length}</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-sm text-green-600 mb-1">Completed</div>
+                            <div class="text-2xl font-bold">${completedCount}</div>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-sm text-blue-600 mb-1">Total Amount</div>
+                            <div class="text-2xl font-bold">₹${totalAmount.toLocaleString()}</div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-2xl font-bold mb-6">All Donations</h3>
+                    <div class="mb-4">
+                        <input type="text" id="donationSearch" onkeyup="filterDonations()" placeholder="Search by name, state, or status..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Donor Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="donationsTableBody">
+                                ${donations.map(d => `
+                                    <tr class="donation-row">
+                                        <td class="px-6 py-4">#${d.donationId}</td>
+                                        <td class="px-6 py-4">${d.name}</td>
+                                        <td class="px-6 py-4">₹${d.amount}</td>
+                                        <td class="px-6 py-4">${d.state}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full ${
+                                                d.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                d.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }">
+                                                ${d.status}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">${d.updated}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                adminContent.innerHTML = '<p class="text-center text-red-500">Failed to load donations</p>';
+            }
+        }
+
+        function filterDonations() {
+            const input = document.getElementById('donationSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('.donation-row');
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(input) ? '' : 'none';
+            });
+        }
+
+        async function showAllTransactions() {
+            setActiveTab('tabTransactions');
+            const adminContent = document.getElementById('adminContent');
+            adminContent.innerHTML = '<p class="text-center">Loading...</p>';
+
+            try {
+                const transactions = await apiCall('/Admin/transactions');
+
+                adminContent.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-6">All Transactions</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Donor Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${transactions.map(t => `
+                                    <tr>
+                                        <td class="px-6 py-4">#${t.transactionId}</td>
+                                        <td class="px-6 py-4">${t.nameOfUser}</td>
+                                        <td class="px-6 py-4">₹${t.amount}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full ${
+                                                t.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                t.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }">
+                                                ${t.status}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">${t.updated}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                adminContent.innerHTML = '<p class="text-center text-red-500">Failed to load transactions</p>';
+            }
+        }
+
+        function logout() {
+            state.user = null;
+            state.token = null;
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            renderNav();
+            showLanding();
+        }
+
+        // Initialize
+        window.onload = function() {
+            const savedToken = localStorage.getItem('token');
+            const savedUser = localStorage.getItem('user');
+
+            if (savedToken && savedUser) {
+                state.token = savedToken;
+                state.user = JSON.parse(savedUser);
+                renderNav();
+
+                if (state.user.role === 'admin') {
+                    showAdminDashboard();
+                } else {
+                    showDonorDashboard();
+                }
+            } else {
+                renderNav();
+                showLanding();
+            }
+        };
+    </script>
+</body>
+</html>

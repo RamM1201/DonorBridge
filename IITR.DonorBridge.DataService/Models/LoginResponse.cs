@@ -1,15 +1,14 @@
-﻿using System;
+﻿using IITR.DonorBridge.WebAPI.DataService.Models;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace IITR.DonorBridge.DataService.Models
 {
-    public class Login
+    public class LoginResponse
     {
-        public int LoginID { get; set; }
         public int RegistrationID { get; set; }
-        public string? UserID { get; set; }
-        public string? Password { get; set; }
         public string? Role { get; set; }
+        public Token? Token { get; set; }
     }
 }
